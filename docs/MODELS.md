@@ -8,36 +8,42 @@ This document details supported models, verified Ollama library tags, RAM requir
 
 All listed models are officially verified in the Ollama library and compiled natively for ARM64 (`aarch64`):
 
-| Model Role | Ollama Tag | Parameter Count | Download Size | Estimated RAM (Q4_K_M) | Recommended Use Case |
-|---|---|---|---|---|---|
-| **General Assistant (Default)** | `qwen2.5:3b` | 3.09B | ~1.9 GB | ~2.8 GB | Everyday chat, writing, summaries. Very fast on CPU (~25-35 t/s). |
-| **Advanced General** | `qwen2.5:7b` | 7.61B | ~4.7 GB | ~5.8 GB | Complex reasoning, analysis, multilingual tasks. (~10-15 t/s). |
-| **Code Assistant (Primary)** | `qwen2.5-coder:7b` | 7.61B | ~4.7 GB | ~5.8 GB | Software engineering, debugging, code generation, refactoring. |
-| **Code Assistant (Fast)** | `qwen2.5-coder:1.5b` | 1.54B | ~986 MB | ~1.8 GB | Ultra-fast inline completions and snippet explanation. |
-| **Document Embeddings (RAG)** | `bge-m3` | 567M | ~1.2 GB | ~2.2 GB | Multi-lingual semantic embeddings with 8,192 token window. |
-| **Ultra-Lightweight** | `qwen2.5:0.5b` | 490M | ~397 MB | ~1.0 GB | Minimal CPU footprint, testing, IoT devices. |
+| Model Role | Ollama Tag | Parameter Count | Download Size | Estimated RAM (Q4_K_M) | Tested CPU Speed (4 OCPU) | Recommended Use Case |
+|---|---|---|---|---|---|---|
+| **Background Task / Title Model** | `qwen2.5:0.5b` | 490M | ~397 MB | ~0.6 GB | **~52.6 tokens/sec** | Dedicated Open WebUI chat titling & quick tasks; 0ms load, ~300ms execution. |
+| **Fast Coding Assistant** | `qwen2.5-coder:1.5b` | 1.54B | ~986 MB | ~1.8 GB | **~22.7 tokens/sec** | Instant code snippets, scripts, refactoring with near zero waiting. |
+| **General Assistant (Default)** | `qwen2.5:3b` | 3.09B | ~1.9 GB | ~2.8 GB | **~15.4 tokens/sec** | Everyday chat, general writing, summarization. Highly responsive. |
+| **Deep Coding Assistant** | `qwen2.5-coder:7b` | 7.61B | ~4.7 GB | ~5.8 GB | **~6.2 tokens/sec** | Deep software architecture, complex algorithms, multi-step debugging. |
+| **Document Embeddings (RAG)** | `bge-m3` | 567M | ~1.2 GB | ~1.5 GB | High-throughput | Multilingual semantic document embedding with 8,192 token window. |
 
 ---
 
-## 2. Choosing the Right Model Configuration
+## 2. Understanding CPU Utilization During Inference
 
-### Starter Recommendation (Best balance of speed and quality):
+### Why Does CPU Spike to 100% During Responses?
+Large Language Models running on CPU execute heavy SIMD tensor operations (ARM NEON instructions) across all available cores. During active token generation, the CPU streams gigabytes of model weights from RAM into CPU caches for every generated token.
+- **This is expected and normal**: 100% core saturation during inference indicates the engine is maximizing the hardware's computation bandwidth to return the answer as quickly as possible.
+- **The Problem Was CFS Throttling**: Previously, Docker Compose had an artificial limit of `cpus: 3.5` while running 4 threads. This caused the Linux CFS kernel scheduler to freeze threads for 12.5ms out of every 100ms (`nr_throttled > 17,000`). Setting `OLLAMA_CPU_LIMIT=4.0` eliminated throttling completely.
+- **The Secondary CPU Hog Was Open WebUI Background Storms**: Open WebUI was previously configured to run Title Generation, Tag Generation, and Follow-up Generation using the heavy 7B model immediately after every message. Offloading titling to `qwen2.5:0.5b` and disabling tag/follow-up generation keeps the CPU calm between prompts.
+
+---
+
+## 3. Choosing the Right Model Configuration
+
+### Recommended High-Performance Suite (Best speed, responsiveness & capability):
 ```bash
 ./scripts/install-models.sh --recommended
 ```
-- Installs `qwen2.5:3b` and `bge-m3`.
-- Total disk usage: ~3.1 GB.
-- RAM utilization: ~4.5 GB (leaves ~19 GB free).
-- Average CPU generation speed: **25 to 35 tokens per second**.
+- Installs `qwen2.5:3b`, `qwen2.5-coder:1.5b`, `qwen2.5:0.5b`, and `bge-m3`.
+- Total disk usage: ~4.5 GB (out of 48-200 GB available).
+- Combined RAM footprint with `OLLAMA_MAX_LOADED_MODELS=3`: ~7-9 GB (leaves ~15 GB free).
+- Model reload latency: **0 ms** (all models remain resident in RAM).
 
-### Coding Recommendation (Deep programming intelligence):
+### Deep Coding Recommendation (For complex coding challenges):
 ```bash
 ./scripts/install-models.sh --coder
 ```
-- Installs `qwen2.5-coder:7b` and `bge-m3`.
-- Total disk usage: ~5.9 GB.
-- RAM utilization: ~7.5 GB (leaves ~16 GB free).
-- Average CPU generation speed: **12 to 18 tokens per second**.
+- Installs `qwen2.5-coder:7b`, `qwen2.5-coder:1.5b`, `qwen2.5:0.5b`, and `bge-m3`.
 
 ---
 

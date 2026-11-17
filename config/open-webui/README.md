@@ -9,4 +9,9 @@
 # RAG Embeddings:
 # Uses BGE-M3 (567M params) via Ollama embedding endpoint (http://ollama:11434).
 # Chunk Size: 1000 tokens with 100 token overlap.
+#
+# CPU Performance Optimization:
+# - TASK_MODEL: Set to 'qwen2.5:0.5b' to offload chat titling to an ultra-lightweight model (~300ms).
+# - ENABLE_TAGS_GENERATION: Set to false to avoid redundant LLM calls per message.
+# - ENABLE_FOLLOW_UP_GENERATION: Set to false to prevent queuing delays on CPU.
 

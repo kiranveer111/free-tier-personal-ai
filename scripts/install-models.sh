@@ -103,47 +103,54 @@ benchmark_model() {
 
 show_menu() {
     echo -e "\nSelect an installation option:"
-    echo "1) Recommended Starter Pack (Qwen 2.5 3B + BGE-M3 Embeddings) [~3.2 GB]"
-    echo "2) Power Coder Pack (Qwen 2.5 Coder 7B + BGE-M3) [~5.9 GB]"
-    echo "3) Advanced Reasoner (Qwen 2.5 7B) [~4.7 GB]"
-    echo "4) Ultra-Lightweight Pack (Qwen 2.5 0.5B + BGE-M3) [~1.6 GB]"
-    echo "5) Custom Model by Name"
-    echo "6) List currently installed models"
-    echo "7) Benchmark an installed model"
-    echo "8) Exit"
-    read -rp "Enter choice [1-8]: " CHOICE
+    echo "1) Recommended High-Performance Suite (Qwen 2.5 3B + Coder 1.5B + 0.5B Task + BGE-M3) [~4.5 GB]"
+    echo "2) Power Coder Pack (Qwen 2.5 Coder 7B + Coder 1.5B + 0.5B Task + BGE-M3) [~7.3 GB]"
+    echo "3) Ultra-Fast Coder Only (Qwen 2.5 Coder 1.5B) [~986 MB]"
+    echo "4) Advanced Reasoner (Qwen 2.5 7B) [~4.7 GB]"
+    echo "5) Task Model Only (Qwen 2.5 0.5B for WebUI titling) [~397 MB]"
+    echo "6) Custom Model by Name"
+    echo "7) List currently installed models"
+    echo "8) Benchmark an installed model"
+    echo "9) Exit"
+    read -rp "Enter choice [1-9]: " CHOICE
 
     case "$CHOICE" in
         1)
-            pull_model "qwen2.5:3b" "General Assistant (Fast, CPU friendly)" "2.0 GB"
+            pull_model "qwen2.5:3b" "General Assistant (Fast, CPU friendly)" "1.9 GB"
+            pull_model "qwen2.5-coder:1.5b" "Fast Coding Assistant (~23 t/s)" "986 MB"
+            pull_model "qwen2.5:0.5b" "Background Task & Title Model (~52 t/s)" "397 MB"
             pull_model "bge-m3" "Embedding Model for RAG / Document Analysis" "1.2 GB"
             ;;
         2)
-            pull_model "qwen2.5-coder:7b" "Advanced Coding Assistant" "4.7 GB"
+            pull_model "qwen2.5-coder:7b" "Advanced Deep Coding Assistant" "4.7 GB"
+            pull_model "qwen2.5-coder:1.5b" "Fast Coding Assistant (~23 t/s)" "986 MB"
+            pull_model "qwen2.5:0.5b" "Background Task & Title Model (~52 t/s)" "397 MB"
             pull_model "bge-m3" "Embedding Model for RAG / Document Analysis" "1.2 GB"
             ;;
         3)
-            pull_model "qwen2.5:7b" "Advanced General Reasoning & Architecture" "4.7 GB"
+            pull_model "qwen2.5-coder:1.5b" "Fast Coding Assistant (~23 t/s)" "986 MB"
             ;;
         4)
-            pull_model "qwen2.5:0.5b" "Ultra-fast low-resource model" "400 MB"
-            pull_model "bge-m3" "Embedding Model for RAG" "1.2 GB"
+            pull_model "qwen2.5:7b" "Advanced General Reasoning & Architecture" "4.7 GB"
             ;;
         5)
+            pull_model "qwen2.5:0.5b" "Background Task & Title Model (~52 t/s)" "397 MB"
+            ;;
+        6)
             read -rp "Enter full Ollama model tag (e.g. llama3.2:3b): " CUSTOM_MODEL
             pull_model "$CUSTOM_MODEL" "User custom selection" "Variable"
             ;;
-        6)
+        7)
             echo -e "\n${GREEN}Currently Installed Models in Ollama:${NC}"
             docker exec ollama ollama list
             ;;
-        7)
+        8)
             echo -e "\nInstalled models:"
             docker exec ollama ollama list
             read -rp "Enter model tag to benchmark: " BM_MODEL
             benchmark_model "$BM_MODEL"
             ;;
-        8)
+        9)
             echo "Exiting."
             exit 0
             ;;
@@ -157,11 +164,15 @@ show_menu() {
 if [ $# -gt 0 ]; then
     case "$1" in
         --recommended)
-            pull_model "qwen2.5:3b" "General Assistant (Fast CPU)" "2.0 GB"
+            pull_model "qwen2.5:3b" "General Assistant (Fast CPU)" "1.9 GB"
+            pull_model "qwen2.5-coder:1.5b" "Fast Coding Assistant (~23 t/s)" "986 MB"
+            pull_model "qwen2.5:0.5b" "Background Task & Title Model (~52 t/s)" "397 MB"
             pull_model "bge-m3" "RAG Embedding Model" "1.2 GB"
             ;;
         --coder)
-            pull_model "qwen2.5-coder:7b" "Advanced Coding Model" "4.7 GB"
+            pull_model "qwen2.5-coder:7b" "Advanced Deep Coding Model" "4.7 GB"
+            pull_model "qwen2.5-coder:1.5b" "Fast Coding Assistant (~23 t/s)" "986 MB"
+            pull_model "qwen2.5:0.5b" "Background Task & Title Model" "397 MB"
             pull_model "bge-m3" "RAG Embedding Model" "1.2 GB"
             ;;
         --model)

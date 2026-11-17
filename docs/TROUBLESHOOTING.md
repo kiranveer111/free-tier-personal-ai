@@ -56,18 +56,42 @@ This generates a timestamped, sanitized report (`diagnostics-<TIMESTAMP>.txt`) c
 
 ---
 
-### Issue C: Ollama Inference is Slow or Freezes
+### Issue C: Ollama Inference is Slow or Freezes / CPU Spikes Continuously
 
-**Symptoms:** Token generation takes a long time to start, or CPU spikes to 100% across all cores.
+**Symptoms:** Token generation takes a long time to start, generation rate is sluggish, or CPU spikes to 100% across all cores and stays pegged long after an answer finishes.
 
-**Causes & Solutions:**
-1. **Model Size Mismatch:**
-   - Running a model larger than 7B (e.g. 14B or 32B) on a 4-core CPU causes slow token evaluation (~2-4 tokens/sec).
-   - Switch to `qwen2.5:3b` for fast, lightweight responses (~30 tokens/sec).
-2. **Parallel Request Contention:**
-   - Ensure `OLLAMA_NUM_PARALLEL=1` in `.env`. Concurrent inferences on CPU cause severe cache thrashing.
-3. **Context Length Overhead:**
-   - Extremely large prompts (>16,000 tokens) increase quadratic attention computation. Keep context size at `8192` or lower.
+**Root Causes & Verified Solutions:**
+1. **Linux CFS Quota Throttling (Crucial Fix):**
+   - *Problem:* If Docker container CPU limit is set to a partial quota (e.g., `cpus: 3.5`) while Ollama uses 4 OpenMP threads (`OMP_NUM_THREADS=4`), the Linux kernel CFS scheduler freezes all inference threads for 12.5ms out of every 100ms. Inspect via:
+     ```bash
+     docker exec ollama cat /sys/fs/cgroup/cpu.stat
+     ```
+     High `nr_throttled` and `throttled_usec` confirm kernel throttling.
+   - *Solution:* In `.env`, ensure `OLLAMA_CPU_LIMIT=4.0` to permit full 4-core execution without artificial scheduler stalls.
+
+2. **Open WebUI Background Task Storm:**
+   - *Problem:* Open WebUI by default triggers three separate LLM tasks after every message: Title Generation, Tag Generation, and Follow-up Generation. If `TASK_MODEL` is unset, all three tasks run on the heavy chat model (e.g. 7B), queuing up and pinning the CPU for an additional 45-60 seconds.
+   - *Solution:* Configure Open WebUI to offload titling to an ultra-fast 0.5B model and disable redundant tasks:
+     ```bash
+     TASK_MODEL=qwen2.5:0.5b
+     ENABLE_TITLE_GENERATION=true
+     ENABLE_TAGS_GENERATION=false
+     ENABLE_FOLLOW_UP_GENERATION=false
+     ```
+
+3. **Model Eviction & Reload Thrashing (`OLLAMA_MAX_LOADED_MODELS`):**
+   - *Problem:* If `OLLAMA_MAX_LOADED_MODELS=1`, invoking document embeddings (`bge-m3`) or a task model forces Ollama to evict the chat model from RAM. Reloading a 7B model from disk adds 7-8 seconds of latency to every chat turn.
+   - *Solution:* With 24 GB of RAM on the Ampere A1, set `OLLAMA_MAX_LOADED_MODELS=3` in `.env`. This keeps the chat model, task model, and embedding model permanently warm in memory with 0 ms reload delay.
+
+4. **Model Selection for ARM64 CPU Inference:**
+   - On a 4-core ARM64 CPU:
+     - `qwen2.5:3b`: Yields **~15-18 tokens/sec** — optimal for everyday conversations.
+     - `qwen2.5-coder:1.5b`: Yields **~23-28 tokens/sec** — optimal for rapid programming tasks.
+     - `qwen2.5:0.5b`: Yields **~52 tokens/sec** — dedicated background task runner.
+     - `qwen2.5-coder:7b`: Yields **~6-7 tokens/sec** — reserved for complex architectural tasks where slower latency is acceptable.
+
+5. **Context Window Size:**
+   - CPU attention computation scales quadratically with context length. Set `OLLAMA_CONTEXT_SIZE=4096` in `.env` (reduced from 8192) for optimal responsiveness.
 
 ---
 
