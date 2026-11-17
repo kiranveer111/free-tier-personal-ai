@@ -1,0 +1,35 @@
+# ==============================================================================
+# Uptime Kuma Module - Self-Hosted Monitoring Dashboard
+# ==============================================================================
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges=true
+    volumes:
+      - uptime_kuma_data:/app/data
+    networks:
+      - oracle_ai_frontend
+      - oracle_ai_backend
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 1G
+    healthcheck:
+      test: ["CMD-SHELL", "node -e 'require(\"http\").get(\"http://localhost:3001\", (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  uptime_kuma_data:
+    name: oracle_ai_uptime_data
+
+networks:
+  oracle_ai_frontend:
+    external: true
+  oracle_ai_backend:
+    external: true

@@ -1,0 +1,41 @@
+# ==============================================================================
+# code-server Module - Web-Based VS Code Development Environment
+# ==============================================================================
+services:
+  code-server:
+    image: codercom/code-server:latest
+    container_name: code-server
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges=true
+    environment:
+      - PASSWORD=${CODE_SERVER_PASSWORD:-ChangeMeSecurePassword123!}
+      - SUDO_PASSWORD=${CODE_SERVER_PASSWORD:-ChangeMeSecurePassword123!}
+      - DEFAULT_WORKSPACE=/home/coder/project
+    volumes:
+      - code_server_data:/home/coder
+    networks:
+      - oracle_ai_frontend
+      - oracle_ai_backend
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4G
+        reservations:
+          memory: 1G
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  code_server_data:
+    name: oracle_ai_codeserver_data
+
+networks:
+  oracle_ai_frontend:
+    external: true
+  oracle_ai_backend:
+    external: true

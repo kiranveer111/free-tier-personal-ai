@@ -1,0 +1,147 @@
+# ==============================================================================
+# Oracle Cloud Personal AI Server - Core Production Stack
+# ==============================================================================
+# Architecture: ARM64 (Ampere A1) | Reverse Proxy: Caddy | WebUI: Open WebUI | LLM: Ollama
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # Ollama - Local LLM Inference Engine (CPU Optimized)
+  # ----------------------------------------------------------------------------
+  ollama:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    container_name: ollama
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges=true
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_ORIGINS=*
+      - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-1}
+      - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-1}
+      - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-24h}
+      - OMP_NUM_THREADS=${OMP_NUM_THREADS:-4}
+      - OLLAMA_CONTEXT_SIZE=${OLLAMA_CONTEXT_SIZE:-8192}
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - ai-backend
+    deploy:
+      resources:
+        limits:
+          cpus: "${OLLAMA_CPU_LIMIT:-3.5}"
+          memory: ${OLLAMA_MEM_LIMIT:-16G}
+        reservations:
+          memory: ${OLLAMA_MEM_RESERVATION:-4G}
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # ----------------------------------------------------------------------------
+  # Open WebUI - AI Interface & Knowledge Assistant
+  # ----------------------------------------------------------------------------
+  open-webui:
+    image: ${OPEN_WEBUI_IMAGE:-ghcr.io/open-webui/open-webui:main}
+    container_name: open-webui
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges=true
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY:?WEBUI_SECRET_KEY must be set in .env}
+      - ENABLE_SIGNUP=${ENABLE_SIGNUP:-true}
+      - DEFAULT_MODELS=${DEFAULT_MODELS:-qwen2.5:3b}
+      # Document Intelligence & Embedding Config
+      - RAG_EMBEDDING_ENGINE=${RAG_EMBEDDING_ENGINE:-ollama}
+      - RAG_EMBEDDING_MODEL=${RAG_EMBEDDING_MODEL:-bge-m3}
+      - CHUNK_SIZE=${CHUNK_SIZE:-1000}
+      - CHUNK_OVERLAP=${CHUNK_OVERLAP:-100}
+      # Security & Admin hardening
+      - WEBUI_AUTH=true
+      - DATA_DIR=/app/backend/data
+    volumes:
+      - open_webui_data:/app/backend/data
+    networks:
+      - ai-backend
+      - ai-frontend
+    depends_on:
+      ollama:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "${WEBUI_CPU_LIMIT:-1.5}"
+          memory: ${WEBUI_MEM_LIMIT:-4G}
+        reservations:
+          memory: ${WEBUI_MEM_RESERVATION:-1G}
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8080/health\")' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ----------------------------------------------------------------------------
+  # Caddy - Reverse Proxy, Automated HTTPS & Security Edge
+  # ----------------------------------------------------------------------------
+  caddy:
+    image: ${CADDY_IMAGE:-caddy:2.9-alpine}
+    container_name: caddy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges=true
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      - AI_DOMAIN=${AI_DOMAIN:-ai.example.com}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-admin@example.com}
+      - CADDY_TLS_MODE=${CADDY_TLS_MODE:-auto}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - ai-frontend
+    depends_on:
+      open-webui:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "${CADDY_CPU_LIMIT:-0.5}"
+          memory: ${CADDY_MEM_LIMIT:-1G}
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:80/healthz 2>&1 || exit 0"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+# ------------------------------------------------------------------------------
+# Persistent Volumes
+# ------------------------------------------------------------------------------
+volumes:
+  ollama_data:
+    name: oracle_ai_ollama_data
+  open_webui_data:
+    name: oracle_ai_webui_data
+  caddy_data:
+    name: oracle_ai_caddy_data
+  caddy_config:
+    name: oracle_ai_caddy_config
+
+# ------------------------------------------------------------------------------
+# Isolated Internal Networks
+# ------------------------------------------------------------------------------
+networks:
+  ai-frontend:
+    name: oracle_ai_frontend
+    driver: bridge
+  ai-backend:
+    name: oracle_ai_backend
+    driver: bridge

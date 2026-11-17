@@ -1,0 +1,36 @@
+# Environment files containing secrets
+.env
+.env.local
+.env.*.local
+
+# Backups and archives
+backups/*.tar.gz
+backups/*.tar
+backups/*.sql
+backups/*.bak
+
+# Keys and Certificates
+*.key
+*.pem
+*.pub
+*.cert
+*.crt
+id_rsa*
+id_ed25519*
+
+# Diagnostic dumps
+diagnostics-*.txt
+*.log
+
+# Docker volume mounts (if bound locally)
+data/
+volumes/
+
+# Editor / OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+

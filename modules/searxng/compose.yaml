@@ -1,0 +1,36 @@
+# ==============================================================================
+# SearXNG Module - Privacy-Preserving Metasearch for Web AI Grounding
+# ==============================================================================
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges=true
+    environment:
+      - SEARXNG_BASE_URL=http://searxng:8080/
+      - UWSGI_WORKERS=2
+      - UWSGI_THREADS=2
+    volumes:
+      - searxng_data:/etc/searxng
+    networks:
+      - oracle_ai_backend
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  searxng_data:
+    name: oracle_ai_searxng_data
+
+networks:
+  oracle_ai_backend:
+    external: true

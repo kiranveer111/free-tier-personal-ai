@@ -1,0 +1,44 @@
+# ==============================================================================
+# Netdata Module - Real-Time Performance & System Health Metrics
+# ==============================================================================
+services:
+  netdata:
+    image: netdata/netdata:latest
+    container_name: netdata
+    restart: unless-stopped
+    pid: host
+    cap_add:
+      - SYS_PTRACE
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - netdataconfig:/etc/netdata
+      - netdatalib:/var/lib/netdata
+      - netdatacache:/var/cache/netdata
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - oracle_ai_frontend
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 1G
+
+volumes:
+  netdataconfig:
+    name: oracle_ai_netdata_config
+  netdatalib:
+    name: oracle_ai_netdata_lib
+  netdatacache:
+    name: oracle_ai_netdata_cache
+
+networks:
+  oracle_ai_frontend:
+    external: true
+

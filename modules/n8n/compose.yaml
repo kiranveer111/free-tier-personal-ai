@@ -1,0 +1,44 @@
+# ==============================================================================
+# n8n Module - Workflow Automation Engine with AI Node Integrations
+# ==============================================================================
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges=true
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - WEBHOOK_URL=https://${AI_DOMAIN:-ai.example.com}/n8n/
+      - GENERIC_TIMEZONE=UTC
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - oracle_ai_backend
+      - oracle_ai_frontend
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 2G
+        reservations:
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:5678/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  n8n_data:
+    name: oracle_ai_n8n_data
+
+networks:
+  oracle_ai_backend:
+    external: true
+  oracle_ai_frontend:
+    external: true

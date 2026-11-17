@@ -1,0 +1,38 @@
+# ==============================================================================
+# Qdrant Module - Vector Database for High-Performance RAG
+# ==============================================================================
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.13.0
+    container_name: qdrant
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges=true
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+      - QDRANT__SERVICE__HTTP_PORT=6333
+      - QDRANT__LOG_LEVEL=INFO
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - oracle_ai_backend
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 3G
+        reservations:
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  qdrant_data:
+    name: oracle_ai_qdrant_data
+
+networks:
+  oracle_ai_backend:
+    external: true
